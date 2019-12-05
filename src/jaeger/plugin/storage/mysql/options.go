@@ -63,7 +63,7 @@ func (opt *Options) InitFromViper(v *viper.Viper) {
 	opt.Configuration.Host = v.GetString(host)
 	opt.Configuration.Port = v.GetInt(port)
 	opt.Configuration.Db = v.GetString(db)
-	if opt.Configuration.Url != "" {
+	if opt.Configuration.Url == "" {
 		opt.Configuration.Url = fmt.Sprintf(
 			"%s:%s@tcp(%s:%d)/%s?charset=utf8", opt.Configuration.User, 
 												opt.Configuration.Password,
