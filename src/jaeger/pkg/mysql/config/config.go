@@ -26,4 +26,6 @@ type Configuration struct {
 	LingerTime  int       `yaml:"lingerTime"`
 	Batchsize   int       `yaml:"batchsize"`
 	Workers     int       `yaml:"workers"`
+	Expired     int       `yaml:"expired"`
+	Interval    int       `yaml:"interval"`
 }

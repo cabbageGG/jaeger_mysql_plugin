@@ -16,46 +16,51 @@
 package mysql
 
 import (
-	"flag"
+	"fmt"
 	"database/sql"
+	"flag"
+	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/viper"
 	"github.com/uber/jaeger-lib/metrics"
 	"go.uber.org/zap"
-	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/jaegertracing/jaeger/storage/spanstore"
-	"github.com/jaegertracing/jaeger/storage/dependencystore"
-	mSpanStore "github.com/jaegertracing/jaeger/plugin/storage/mysql/spanstore"
 	depStore "github.com/jaegertracing/jaeger/plugin/storage/mysql/dependencystore"
+	mSpanStore "github.com/jaegertracing/jaeger/plugin/storage/mysql/spanstore"
 	"github.com/jaegertracing/jaeger/plugin/storage/mysql/spanstore/dbmodel"
+	"github.com/jaegertracing/jaeger/storage/dependencystore"
+	"github.com/jaegertracing/jaeger/storage/spanstore"
 )
 
 const (
-	SpanDropCountName 				= "mysql_span_drop_count"
-	MysqlBatchInsertErrorName       = "mysql_batch_insert_error_count"
+	SpanDropCountName         = "mysql_span_drop_count"
+	MysqlBatchInsertErrorName = "mysql_batch_insert_error_count"
 )
 
 // Factory implements storage.Factory and creates storage components backed by mysql store.
 type Factory struct {
-	options        Options
-	metricsFactory metrics.Factory
-	logger         *zap.Logger
-	store          *sql.DB
-	cacheStore     *mSpanStore.CacheStore
-	backgroudStore *mSpanStore.BackgroudStore
-	eventQueue     chan *dbmodel.Span
+	options         Options
+	metricsFactory  metrics.Factory
+	logger          *zap.Logger
+	store           *sql.DB
+	cacheStore      *mSpanStore.CacheStore
+	backgroudStore  *mSpanStore.BackgroudStore
+	eventQueue      chan *dbmodel.Span
+	maintenanceDone chan bool
 
 	metrics struct {
 		// SpanDropCount returns the count of dropped span when the queue is full
-		SpanDropCount 			metrics.Counter
-		MysqlBatchInsertError   metrics.Counter
+		SpanDropCount         metrics.Counter
+		MysqlBatchInsertError metrics.Counter
 	}
 }
 
 // NewFactory creates a new Factory.
 func NewFactory() *Factory {
-	return &Factory{}
+	return &Factory{
+		maintenanceDone: make(chan bool),
+	}
 }
 
 // AddFlags implements plugin.Configurable
@@ -80,18 +85,54 @@ func (f *Factory) Initialize(metricsFactory metrics.Factory, logger *zap.Logger)
 		logger.Fatal("Cannot create mysql session", zap.Error(err))
 		return err
 	}
-	f.store = db 
+	f.store = db
 
 	f.cacheStore = mSpanStore.NewCacheStore(f.store, f.logger)
 	f.cacheStore.Initialize()
 
-	f.eventQueue = make(chan *dbmodel.Span, f.options.Configuration.QueueLength) 
+	f.eventQueue = make(chan *dbmodel.Span, f.options.Configuration.QueueLength)
 	f.backgroudStore = mSpanStore.NewBackgroudStore(f.store, f.eventQueue, f.logger, f.options.Configuration.LingerTime,
 		f.options.Configuration.Batchsize, f.options.Configuration.Workers, f.metrics.MysqlBatchInsertError)
 	f.backgroudStore.Start()
 
+	go f.maintenance()
+
 	logger.Info("Mysql storage initialized successed")
 	return nil
+}
+
+// Maintenance starts a background maintenance job for the clean mysql expired data
+func (f *Factory) maintenance() {
+	expired := int64(f.options.Configuration.Expired * 3600 * 24)
+	interval := time.Duration(f.options.Configuration.Interval) * time.Minute
+	maintenanceTicker := time.NewTicker(interval)
+	defer maintenanceTicker.Stop()
+	for {
+		select {
+		case <-f.maintenanceDone:
+			return
+		case <-maintenanceTicker.C:
+            // delete expired mysql data
+			startTime := (time.Now().Unix() - expired) * 1000000
+			sql := fmt.Sprintf("delete from traces where start_time <= %d", startTime)
+			results, err := f.store.Exec(sql)
+			if err != nil {
+				f.logger.Error("delete expired mysql data error", zap.Error(err))			
+			}else{
+				f.logger.Info("delete expired mysql data success", zap.Int("expired(d)", f.options.Configuration.Expired), 
+																   zap.Int("interval(m)", f.options.Configuration.Interval),
+																   zap.Int("results", results))
+			}
+			// todo metrics
+		}
+	}
+}
+
+// Close Implements io.Closer and closes the underlying storage
+func (f *Factory) Close() error {
+	close(f.maintenanceDone)
+	err := f.store.Close()
+	return err
 }
 
 // CreateSpanReader implements storage.Factory

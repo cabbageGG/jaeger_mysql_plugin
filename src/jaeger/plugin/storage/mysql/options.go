@@ -33,7 +33,9 @@ const (
 	queueLength = "mysql.queueLength"
 	lingerTime  = "mysql.lingerTime"      
 	batchsize   = "mysql.batchsize"  
-	workers     = "mysql.workers"     
+	workers     = "mysql.workers"
+	expired     = "mysql.expired"     
+	interval    = "mysql.interval" 
 )
 
 // Options stores the configuration entries for this storage
@@ -53,6 +55,8 @@ func (opt *Options) AddFlags(flagSet *flag.FlagSet) {
 	flagSet.Int(lingerTime, opt.Configuration.LingerTime, "The mysql cluster write time interval Millisecond")
 	flagSet.Int(batchsize, opt.Configuration.Batchsize, "The mysql cluster write batch size")
 	flagSet.Int(workers, opt.Configuration.Workers, "The mysql cluster write workers")
+	flagSet.Int(expired, opt.Configuration.Expired, "The mysql data expired time (days)")
+	flagSet.Int(interval, opt.Configuration.Interval, "The interval time to clean expired mysql data (Minute)")
 }
 
 // InitFromViper initializes the options struct with values from Viper
@@ -75,6 +79,8 @@ func (opt *Options) InitFromViper(v *viper.Viper) {
 	opt.Configuration.LingerTime = v.GetInt(lingerTime)
 	opt.Configuration.Batchsize = v.GetInt(batchsize)
 	opt.Configuration.Workers = v.GetInt(workers)
+	opt.Configuration.Expired = v.GetInt(expired)
+	opt.Configuration.Interval = v.GetInt(interval)
 	// set default value 
 	if opt.Configuration.QueueLength == 0{
 		opt.Configuration.QueueLength = 1000000
@@ -87,5 +93,11 @@ func (opt *Options) InitFromViper(v *viper.Viper) {
 	}
 	if opt.Configuration.Workers == 0{
 		opt.Configuration.Workers = 8
+	}
+	if opt.Configuration.Expired == 0{
+		opt.Configuration.Expired = 7   // default 7 days
+	}
+	if opt.Configuration.Interval == 0{
+		opt.Configuration.Interval = 10   // default 10 Minute
 	}
 }
