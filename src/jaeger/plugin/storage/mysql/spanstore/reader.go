@@ -240,6 +240,6 @@ func gen_query_sql(query *spanstore.TraceQueryParameters) string {
 	if limit <= 0 {
 		limit = 20
 	}
-	defaultQuery = fmt.Sprintf("SELECT trace_id FROM (%s) as tmp", defaultQuery) + fmt.Sprintf(" limit %d", limit)
+	defaultQuery = fmt.Sprintf("SELECT distinct(trace_id) FROM (%s) as tmp", defaultQuery) + fmt.Sprintf(" limit %d", limit)
 	return defaultQuery
 }
