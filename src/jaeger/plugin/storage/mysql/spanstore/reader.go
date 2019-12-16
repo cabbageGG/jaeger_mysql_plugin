@@ -179,9 +179,8 @@ func (r *SpanReader) FindTraceIDs(ctx context.Context, query *spanstore.TraceQue
 	}
 	var traceIds []model.TraceID
 	var traceIdStr string
-	var startTime string
 	for rows.Next() {
-		err := rows.Scan(&traceIdStr, &startTime)
+		err := rows.Scan(&traceIdStr)
 		if err != nil {
 			r.logger.Error("queryTraceIDs scan err", zap.Error(err))
 		}
@@ -197,7 +196,7 @@ func (r *SpanReader) FindTraceIDs(ctx context.Context, query *spanstore.TraceQue
 
 func gen_query_sql(query *spanstore.TraceQueryParameters) string {
 	// TODO need more graceful
-	defaultQuery := "SELECT distinct(trace_id),start_time FROM traces"
+	defaultQuery := "SELECT trace_id FROM traces"
 	// add condition
 	var conditions []string
 	if query.ServiceName != ""{
@@ -241,6 +240,6 @@ func gen_query_sql(query *spanstore.TraceQueryParameters) string {
 	if limit <= 0 {
 		limit = 20
 	}
-	defaultQuery = defaultQuery + fmt.Sprintf(" limit %d", limit)
+	defaultQuery = fmt.Sprintf("SELECT trace_id FROM (%s) as tmp", defaultQuery) + fmt.Sprintf(" limit %d", limit)
 	return defaultQuery
 }
