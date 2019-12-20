@@ -25,3 +25,10 @@ jaeger
 使用方式：
 - 按照上面说明增加代码后。
 - 在启动项目时，设置参数env参数 SPAN_STORAGE_TYPE: "mysql" 
+
+补充
+- 在启动之前需要先初始化sql文件
+
+
+# start 
+./all-in-one-linux --config-file=config.yaml
