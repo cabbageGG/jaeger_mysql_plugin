@@ -125,8 +125,8 @@ func (b BackgroudStore)Start(){
 
 func (b BackgroudStore)batch_insert(spans []*dbmodel.Span) error{
 	var ib = dbs.NewInsertBuilder()
-    ib.Table("traces")
-    ib.Columns("trace_id", "span_id", "span_hash", "parent_id", "operation_name", "flags",
+        ib.Table("traces")
+        ib.Columns("trace_id", "span_id", "span_hash", "parent_id", "operation_name", "flags",
 		"start_time", "duration", "tags", "logs", "refs", "process", "service_name", "http_code", "error")
 	for _, span := range spans {
 		ib.Values(span.TraceID, span.SpanID,span.SpanHash, span.ParentID, span.OperationName, span.Flags, span.StartTime,
