@@ -68,14 +68,14 @@ func (c *CacheStore)load_caches(){
 	defer c.cacheLock.Unlock()
 	service_names, err := c.LoadServices()
 	if err != nil {
-		c.logger.Fatal("getServices error", zap.Error(err))
+		c.logger.Error("getServices error", zap.Error(err))
 		return 
 	}
 	for _, service_name := range service_names {
 		c.caches[service_name] = map[string]struct{}{}
 		operation_names, err := c.LoadOperations(service_name)
 		if err != nil {
-			c.logger.Fatal("get service operation error", zap.Error(err))
+			c.logger.Error("get service operation error", zap.Error(err))
 			continue 
 		}
 		for _, operation_name := range operation_names{
@@ -95,7 +95,7 @@ func (c *CacheStore) UpdateCaches(service string, operation string){
 		// insert service operation to mysql
 		_, err := c.mysql_client.Exec(insertServiceName, service)
 		if err != nil {
-			c.logger.Fatal("write service_name err", zap.Error(err))
+			c.logger.Error("write service_name err", zap.Error(err))
 		}
 	}else{
 		if _, ok := service_operations[operation]; !ok{
@@ -103,7 +103,7 @@ func (c *CacheStore) UpdateCaches(service string, operation string){
 			// insert operation to mysql
 			_, err := c.mysql_client.Exec(insertOperationName, service, operation)
 			if err != nil {
-				c.logger.Fatal("write operation_name err", zap.Error(err))
+				c.logger.Error("write operation_name err", zap.Error(err))
 			}
 		}
 	}
@@ -112,7 +112,7 @@ func (c *CacheStore) UpdateCaches(service string, operation string){
 func (c *CacheStore)LoadServices()([]string, error){
 	rows, err := c.mysql_client.Query(queryServiceNames)
 	if err != nil {
-		c.logger.Fatal("queryService err", zap.Error(err))
+		c.logger.Error("queryService err", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -121,7 +121,7 @@ func (c *CacheStore)LoadServices()([]string, error){
 	for rows.Next() {
 		err := rows.Scan(&service_name)
 		if err != nil {
-			c.logger.Fatal("queryService scan err", zap.Error(err))
+			c.logger.Error("queryService scan err", zap.Error(err))
 		}
 		service_names = append(service_names, service_name)
 	}
@@ -131,7 +131,7 @@ func (c *CacheStore)LoadServices()([]string, error){
 func (c *CacheStore) LoadOperations(service string) ([]string, error){
 	rows, err := c.mysql_client.Query(queryOperationsByServiceName, service)
 	if err != nil {
-		c.logger.Fatal("queryOperation err", zap.Error(err))
+		c.logger.Error("queryOperation err", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -140,7 +140,7 @@ func (c *CacheStore) LoadOperations(service string) ([]string, error){
 	for rows.Next() {
 		err := rows.Scan(&operation_name)
 		if err != nil {
-			c.logger.Fatal("queryService scan err", zap.Error(err))
+			c.logger.Error("queryService scan err", zap.Error(err))
 		}
 		operation_names = append(operation_names, operation_name)
 	}
