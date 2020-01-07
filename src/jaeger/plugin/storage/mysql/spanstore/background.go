@@ -16,7 +16,6 @@
 package spanstore
 
 import (
-	"fmt"
 	"time"
 	"database/sql"
 	_ "strings"
@@ -64,11 +63,11 @@ func (b BackgroudStore)Start(){
 		lingerTime     = b.lingerTime // default 200 * time.Millisecond 
 		batchProcessor = func(batch []*dbmodel.Span) error {
 			if len(batch) > 0{
-				b.logger.Info("process items", zap.Int("batch", len(batch)))
+				b.logger.Debug("process items", zap.Int("batch", len(batch)))
 				err := b.batch_insert(batch)
 				return err
 			}else{
-				b.logger.Info("batch is 0")
+				b.logger.Debug("batch is 0")
 			}
 			return nil
 		}
@@ -99,7 +98,7 @@ func (b BackgroudStore)Start(){
 						break
 					}
 
-					b.logger.Info("batch is reach")
+					b.logger.Debug("batch is reach")
 					if err := batchProcessor(batch); err != nil {
 						errHandler(err, batch)
 					}
@@ -110,7 +109,7 @@ func (b BackgroudStore)Start(){
 
 					batch = make([]*dbmodel.Span, 0)
 				case <-lingerTimer.C:
-					b.logger.Info("time is reach")
+					b.logger.Debug("time is reach")
 					if err := batchProcessor(batch); err != nil {
 						errHandler(err, batch)
 					}
@@ -134,7 +133,8 @@ func (b BackgroudStore)batch_insert(spans []*dbmodel.Span) error{
 	}
 	_, err := ib.Exec(b.mysql_client)
 	if err != nil {
-		b.logger.Error("batch insert error", zap.Error(err), zap.String("sql", ib.ToSQL))			
+		sql, _,_ := ib.ToSQL()
+		b.logger.Error("batch insert error", zap.Error(err), zap.String("sql", sql))			
 	}	
 	return err	
 }
