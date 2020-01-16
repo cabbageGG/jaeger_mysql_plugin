@@ -114,18 +114,42 @@ func (f *Factory) maintenance() {
 		case <-maintenanceTicker.C:
             // delete expired mysql data
 			startTime := (time.Now().Unix() - expired) * 1000000
-			sql := fmt.Sprintf("delete from traces where start_time <= %d", startTime)
-			results, err := f.store.Exec(sql)
-			if err != nil {
-				f.logger.Error("delete expired mysql data error", zap.Error(err))			
-			}else{
-				f.logger.Info("delete expired mysql data success", zap.Int("expired(d)", f.options.Configuration.Expired), 
-																   zap.Int("interval(m)", f.options.Configuration.Interval),
-																   zap.Int("results", results))
+			startTime1 := startTime - 30 * 60 * 1000000   // interval time 
+			sql := fmt.Sprintf("delete from traces where start_time <= %d and start_time > %d limit 1000", startTime, startTime1)
+			var rowsaffectedTotal int
+			for {
+				rowsaffected, err := deleteMysqlExpiredData(f.store, sql)
+				rowsaffectedTotal = rowsaffectedTotal + rowsaffected
+				if err == nil && rowsaffected < 1000 {
+					break
+				}
+				if err != nil {
+					f.logger.Error("delete expired mysql data error", zap.Error(err))	
+				}
+				time.Sleep(1 * time.Second)
+				f.logger.Info("delete expired mysql data", zap.Int("rowsAffected", rowsaffected))
 			}
+
+			f.logger.Info("delete expired mysql data success", zap.Int("expired(d)", f.options.Configuration.Expired), 
+																zap.Int("interval(m)", f.options.Configuration.Interval),
+																zap.Int("rowsaffectedTotal", rowsaffectedTotal))
+
 			// todo metrics
 		}
 	}
+}
+
+
+func deleteMysqlExpiredData(db *sql.DB, sql string) (int, error) {
+	results, err := db.Exec(sql)
+	if err != nil {
+		return 0, err	
+	}
+	rowsaffected, err := results.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return rowsaffected, nil
 }
 
 // Close Implements io.Closer and closes the underlying storage
